@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 void main() {
@@ -11,7 +13,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'My Counter App',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -31,7 +33,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'My Counter App'),
     );
   }
 }
@@ -55,71 +57,155 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  List<Map<String, dynamic>> _messages = []; // Store messages with timestamps
+  int _secondsCounter = 0; // For counting seconds
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  @override
+  void initState() {
+    super.initState();
+    // Start the timer to count seconds
+    Timer.periodic(const Duration(seconds: 1), (Timer timer) {
+      setState(() {
+        _secondsCounter++;
+      });
     });
+  }
+
+  void _resetSecondCounter() {
+    _secondsCounter = 0;
+  }
+
+  // Function to handle message submission
+  void _submitMessage() {
+    if (_controller.text.isNotEmpty) {
+      String message = _controller.text;
+      String timestamp = _getCurrentTimestamp();
+      setState(() {
+        _messages.add({
+          'message': message,
+          'timestamp': timestamp,
+          'isResponse': false,
+        });
+        _controller.clear(); // Clear the text input
+
+        _scrollToBottom();
+
+        _addSystemResponse();
+      });// Scroll to the bottom of the list
+    }
+  }
+
+  void _addSystemResponse() {
+    final timestamp = DateTime.now().toString();
+
+    // Delay the system response by a short period to simulate real-time response
+    Future.delayed(const Duration(milliseconds: 200), () {
+      setState(() {
+        _messages.add({
+          'message': _secondsCounter.toString(),
+          'timestamp': '',
+          'isResponse': true,
+        });
+      });
+      _scrollToBottom();
+      _resetSecondCounter();
+    });// Scroll to the bottom of the list
+  }
+
+  // Get the current time as a formatted string
+  String _getCurrentTimestamp() {
+    DateTime now = DateTime.now();
+    return '${now.day}.${now.month}.${now.year} - ${now.hour}:${now.minute}';
+  }
+
+  // Scroll the list to the bottom whenever a new message is added
+  void _scrollToBottom() {
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent + 400,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('My Counter App'),
+        centerTitle: true,
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final isResponse = _messages[index]['isResponse'];
+                return Align(
+                  alignment: isResponse
+                      ? Alignment.centerLeft // System message (left side)
+                      : Alignment.centerRight, // User message (right side)
+                  child: Container(
+                    constraints: BoxConstraints(
+                      minWidth: 10, // Minimum width of the message container
+                      maxWidth: MediaQuery.of(context).size.width * 0.7, // Maximum width (70% of screen width)
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: isResponse
+                          ? Colors.blueAccent.shade100 // Response message bubble color
+                          : Colors.blueAccent.shade100, // User message bubble color
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start, // Aligns text inside the bubble
+                      children: [
+                        if (!_messages[index]['isResponse'])
+                          Text(
+                            _messages[index]['timestamp']!,
+                            style: const TextStyle(color: Colors.white70, fontSize: 10), // Timestamp styling
+                          ),
+                          const SizedBox(height: 3),
+                        Text(
+                          _messages[index]['message']!,
+                          style: const TextStyle(color: Colors.white), // Message text color
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Text('$_secondsCounter'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(
+                      labelText: 'Text input',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: _submitMessage,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
