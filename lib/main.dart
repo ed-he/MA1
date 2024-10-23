@@ -59,13 +59,13 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  List<Map<String, dynamic>> _messages = []; // Store messages with timestamps
-  int _secondsCounter = 0; // For counting seconds
+  List<Map<String, dynamic>> _messages = [];
+  int _secondsCounter = 0;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    // Start the timer to count seconds
     Timer.periodic(const Duration(seconds: 1), (Timer timer) {
       setState(() {
         _secondsCounter++;
@@ -77,7 +77,6 @@ class _MyHomePageState extends State<MyHomePage> {
     _secondsCounter = 0;
   }
 
-  // Function to handle message submission
   void _submitMessage() {
     if (_controller.text.isNotEmpty) {
       String message = _controller.text;
@@ -88,45 +87,58 @@ class _MyHomePageState extends State<MyHomePage> {
           'timestamp': timestamp,
           'isResponse': false,
         });
-        _controller.clear(); // Clear the text input
+        _controller.clear();
 
         _scrollToBottom();
 
         _addSystemResponse();
-      });// Scroll to the bottom of the list
+      });
     }
   }
 
   void _addSystemResponse() {
     final timestamp = DateTime.now().toString();
 
-    // Delay the system response by a short period to simulate real-time response
+    _resetSecondCounter();
+
     Future.delayed(const Duration(milliseconds: 200), () {
       setState(() {
         _messages.add({
           'message': _secondsCounter.toString(),
-          'timestamp': '',
+          'timestamp': timestamp,
           'isResponse': true,
         });
       });
       _scrollToBottom();
-      _resetSecondCounter();
-    });// Scroll to the bottom of the list
+    });
+    _timer?.cancel();
+    const Duration duration = Duration(seconds: 1);
+    _timer = Timer.periodic(duration, (timer) {
+      setState(() {
+        _messages[_messages.length - 1]['message'] = _secondsCounter.toString();
+      });
+    });
   }
 
-  // Get the current time as a formatted string
   String _getCurrentTimestamp() {
     DateTime now = DateTime.now();
     return '${now.day}.${now.month}.${now.year} - ${now.hour}:${now.minute}';
   }
 
-  // Scroll the list to the bottom whenever a new message is added
   void _scrollToBottom() {
     _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent + 400,
+      _scrollController.position.maxScrollExtent + 100,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _timer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -144,36 +156,37 @@ class _MyHomePageState extends State<MyHomePage> {
               controller: _scrollController,
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                final isResponse = _messages[index]['isResponse'];
+                final Map<String, dynamic> message = _messages[index];
+                final isResponse = message['isResponse'];
                 return Align(
                   alignment: isResponse
-                      ? Alignment.centerLeft // System message (left side)
-                      : Alignment.centerRight, // User message (right side)
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
                   child: Container(
                     constraints: BoxConstraints(
-                      minWidth: 10, // Minimum width of the message container
-                      maxWidth: MediaQuery.of(context).size.width * 0.7, // Maximum width (70% of screen width)
+                      minWidth: 10,
+                      maxWidth: MediaQuery.of(context).size.width * 0.7,
                     ),
                     padding: const EdgeInsets.all(10),
                     margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                     decoration: BoxDecoration(
                       color: isResponse
-                          ? Colors.blueAccent.shade100 // Response message bubble color
-                          : Colors.blueAccent.shade100, // User message bubble color
+                          ? Colors.blueAccent.shade100
+                          : Colors.blueAccent.shade100,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start, // Aligns text inside the bubble
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (!_messages[index]['isResponse'])
+                        if (!isResponse)
                           Text(
-                            _messages[index]['timestamp']!,
-                            style: const TextStyle(color: Colors.white70, fontSize: 10), // Timestamp styling
+                            message['timestamp'],
+                            style: const TextStyle(color: Colors.white70, fontSize: 10),
                           ),
                           const SizedBox(height: 3),
                         Text(
-                          _messages[index]['message']!,
-                          style: const TextStyle(color: Colors.white), // Message text color
+                          message['message'],
+                          style: const TextStyle(color: Colors.white),
                         ),
                       ],
                     ),
@@ -186,7 +199,6 @@ class _MyHomePageState extends State<MyHomePage> {
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
-                Text('$_secondsCounter'),
                 const SizedBox(width: 10),
                 Expanded(
                   child: TextField(
